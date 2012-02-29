@@ -1,0 +1,807 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>Платные темы</hook_name>
+      <hook_desc>Создание и настройках платных тем</hook_desc>
+      <hook_author>Korepashka</hook_author>
+      <hook_email/>
+      <hook_website/>
+      <hook_update_check/>
+      <hook_requirements><![CDATA[a:4:{s:20:"hook_ipb_version_min";i:31003;s:20:"hook_ipb_version_max";i:0;s:20:"hook_php_version_min";s:0:"";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_version_human>1.0</hook_version_human>
+      <hook_version_long>1000</hook_version_long>
+      <hook_extra_data><![CDATA[a:7:{s:7:"display";a:4:{s:8:"settings";s:148:"Группа настроек: Платные темы<br />Настройки: Email для уведомлений, Срок уведомления";s:8:"language";s:824:"От forums_public_mod: acp_pinned_pay_topic, payed_post_button, payed_to, pay_topic_params_form, pay_topic_params_title, pin_pay_topic<br />От core_public_global: actualize_payed_topics_log<br />От core_public_email_content: payed_closed_notification, payed_closed_notification_manager, payed_n_days_notification, payed_n_days_notification_manager, payed_tomorrow_notification, payed_tomorrow_notification_manager, pin_payed_topic_manager, pin_payed_topic_owner, subject__payed_closed_notification, subject__payed_closed_notification_manager, subject__payed_n_days_notification, subject__payed_n_days_notification_manager, subject__payed_tomorrow_notification, subject__payed_tomorrow_notification_manager, subject__pin_payed_topic_manager, subject__pin_payed_topic_owner<br />От core_public_error: pay_topic_bad_date";s:5:"tasks";s:70:"Задачи: Актуализация коммерческих тем";s:9:"templates";s:31:"От skin_topic: payTopicParams";}s:13:"settingGroups";a:1:{s:0:"";s:2:"67";}s:8:"settings";a:2:{s:0:"";s:3:"519";i:1;s:3:"520";}s:5:"tasks";a:1:{i:0;i:26;}s:8:"language";a:4:{s:17:"forums_public_mod";a:6:{s:0:"";s:20:"acp_pinned_pay_topic";i:1;s:17:"payed_post_button";i:2;s:8:"payed_to";i:3;s:21:"pay_topic_params_form";i:4;s:22:"pay_topic_params_title";i:5;s:13:"pin_pay_topic";}s:18:"core_public_global";a:1:{s:0:"";s:26:"actualize_payed_topics_log";}s:25:"core_public_email_content";a:16:{s:0:"";s:25:"payed_closed_notification";i:1;s:33:"payed_closed_notification_manager";i:2;s:25:"payed_n_days_notification";i:3;s:33:"payed_n_days_notification_manager";i:4;s:27:"payed_tomorrow_notification";i:5;s:35:"payed_tomorrow_notification_manager";i:6;s:23:"pin_payed_topic_manager";i:7;s:21:"pin_payed_topic_owner";i:8;s:34:"subject__payed_closed_notification";i:9;s:42:"subject__payed_closed_notification_manager";i:10;s:34:"subject__payed_n_days_notification";i:11;s:42:"subject__payed_n_days_notification_manager";i:12;s:36:"subject__payed_tomorrow_notification";i:13;s:44:"subject__payed_tomorrow_notification_manager";i:14;s:32:"subject__pin_payed_topic_manager";i:15;s:30:"subject__pin_payed_topic_owner";}s:17:"core_public_error";a:1:{s:0:"";s:18:"pay_topic_bad_date";}}s:9:"templates";a:1:{s:10:"skin_topic";a:2:{s:0:"";s:14:"payTopicParams";i:0;s:14:"payTopicParams";}}s:8:"database";a:0:{}}]]></hook_extra_data>
+      <hook_key>payedTopics</hook_key>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>moderatePayTopics.php</hook_file_real>
+      <hook_type>commandHooks</hook_type>
+      <hook_classname>moderatePayTopics</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:31:"public_forums_moderate_moderate";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+			
+class moderatePayTopics extends (~extends~) {
+ 
+    public function doExecute(ipsRegistry $registry) {
+		
+		
+    //-----------------------------------------
+		// Load language & skin files
+		//-----------------------------------------
+		
+		ipsRegistry::getClass( 'class_localization')->loadLanguageFile( array( 'public_mod' ) );
+		
+		/* If we're here auth_key was fine, so did we come from search? */
+		if ( $this->memberData['member_id'] AND $this->memberData['g_is_supmod'] AND $this->request['fromSearch'] AND $this->request['returnUrl'] )
+		{
+			$this->fromSearch = true;
+			$this->returnUrl  = base64_decode( $this->request['returnUrl'] );
+		}
+		
+		//-----------------------------------------
+		// Check the input
+		//-----------------------------------------
+		
+		$this->_setupAndCheckInput();
+		
+		//-----------------------------------------
+		// Load moderator functions
+		//-----------------------------------------
+		
+		$classToLoad = IPSLib::loadLibrary( IPSLib::getAppDir( 'forums' ) . '/sources/classes/moderate.php', 'moderatorLibrary', 'forums' );
+		$this->modLibrary = new $classToLoad( $this->registry );
+		$this->modLibrary->init( $this->forum );
+
+		//-----------------------------------------
+		// Trash-can set up
+		//-----------------------------------------
+		
+		$this->_takeOutTrash();
+	  
+		//-----------------------------------------
+		// Convert the code ID's into something
+		// use mere mortals can understand....
+		//-----------------------------------------
+		
+		switch ( $this->request['do'] )
+		{
+			case 'pinpay':
+				$this->_payTopicForm();
+			break;
+			case 'save_pay_topic':
+				$this->_savePayTopic();
+			break;
+			case '02':
+				$this->_moveForm();
+			break;
+			case '03':
+				$this->_deleteForm();
+			break;
+			case '04':
+				$this->_deletePost();
+			break;
+			case '05':
+				$this->_editform();
+			break;
+			case '00':
+				$this->_closeTopic();
+			break;
+			case '01':
+				$this->_openTopic();
+			break;
+			case '08':
+				$this->_deleteTopic();
+			break;
+			case '12':
+				$this->_doEdit();
+			break;
+			case '14':
+				$this->_doMove();
+			break;
+			case '15':
+				$this->_topicPinAlter( 'pin' );
+			break;
+			case '16':
+				$this->_topicPinAlter( 'unpin' );
+			break;
+			case 'sdelete':
+				$this->_softDeleteTopicToggle(true);
+			break;
+			case 'sundelete':
+				$this->_softDeleteTopicToggle(false);
+			break;
+
+			//-----------------------------------------
+			// Unsubscribe
+			//-----------------------------------------
+			case '30':
+				$this->_unsubscribeAllForm();
+			break;
+			case '31':
+				$this->_unsubscribeAll();
+			break;
+			//-----------------------------------------
+			// Merge Start
+			//-----------------------------------------
+			case '60':
+				$this->_mergeStart();
+			break;
+			case '61':
+				$this->_mergeComplete();
+			break;
+			//-----------------------------------------
+			// Topic History
+			//-----------------------------------------
+			case '90':
+				$this->_topicHistory();
+			break;
+			//-----------------------------------------
+			// Multi---
+			//-----------------------------------------	
+			case 'topicchoice':
+				$this->_multiTopicModify();
+			break;
+			//-----------------------------------------
+			// Multi---
+			//-----------------------------------------	
+			case 'postchoice':
+				$this->_multiPostModify();
+			break;
+			//-----------------------------------------
+			// Resynchronize Forum
+			//-----------------------------------------
+			case 'resync':
+				$this->_resyncForum();
+			break;
+			//-----------------------------------------
+			// Prune / Move Topics
+			//-----------------------------------------
+			case 'prune_start':
+				$this->_pruneStart();
+			break;
+			case 'prune_finish':
+				$this->_pruneFinish();
+			break;
+			case 'prune_move':
+				$this->_pruneMove();
+			break;
+			//-----------------------------------------
+			// Add. topic view func.
+			//-----------------------------------------
+			case 'topic_approve':
+				$this->_topicApproveAlter('approve');
+			break;
+			case 'topic_unapprove':
+				$this->_topicApproveAlter('unapprove');
+			break;
+			//-----------------------------------------
+			// Edit member
+			//-----------------------------------------
+			case 'editmember':
+				$this->_editMember();
+			break;
+			case 'doeditmember':
+				$this->_doEditMember();
+			break;
+			
+			case 'setAsSpammer':
+				$this->_setAsSpammer();
+			break;
+			
+			/* New options for 3.1 */
+			case 'p_approve':
+				$this->_postsManage('approve_unapproved');
+			break;
+			case 'p_delete_approve':
+				$this->_postsManage('delete_unapproved');
+			break;
+			case 'p_restore':
+				$this->_postsManage('restore_deleted');
+			break;
+			case 'p_delete_softed':
+				$this->_postsManage('delete_deleted');
+			break;
+			
+			default:
+				$this->_showError();
+			break;
+		}
+		
+		// If we have any HTML to print, do so...
+		
+		$this->registry->output->addContent( $this->output );
+		$this->registry->getClass('output')->sendOutput();
+  }
+	
+	
+	protected function _payTopicForm() {
+		
+		// проверка прав модера
+		$this->_resetModerator( $this->topic['forum_id'] );
+				
+		$this->_genericPermissionCheck( 'pin_topic' );
+	
+		/* данные для формы*/
+		$date = getdate();
+		
+		$day  = array();
+		$mon  = array();
+		$year = array();
+		
+		/* Build the day options */
+		$day[] = array( '0', '--' );
+		for ( $i = 1 ; $i < 32 ; $i++ )
+		{
+			$day[] = array( $i, $i );			
+		}
+		
+		/* Build the month options */
+		$mon[] = array( '0', '--' );
+		for( $i = 1 ; $i < 13 ; $i++ )
+		{
+			$mon[] = array( $i, $this->lang->words['M_' . $i ] );
+		}
+		
+		/* Build the years options */
+		$i = $date['year'];
+		$j = $date['year'] + 100;
+		
+		$year[] = array( '0', '--' );
+		for( $i ; $j > $i ; $i++ )
+		{
+			$year[] = array( $i, $i );
+		}
+		
+		$topicDate = array();
+		if ($this->topic['payed_to'] > 0) { 
+			$topicDate['day'] = date('d', $this->topic['payed_to']);
+			$topicDate['mon'] = date('m', $this->topic['payed_to']);
+			$topicDate['year'] = date('Y', $this->topic['payed_to']);
+		}
+		
+		$this->output .= $this->registry->output->getTemplate('topic')->payTopicParams($this->topic,$topicDate,$day,$mon,$year);			
+		
+	}	
+	
+	protected function _savePayTopic() {
+		
+		// проверка заполнения формы		
+		$c_cnt = 0;		
+					
+		foreach ( array('day','month','year') as $v )
+		{ 
+			if ( $this->request[ $v ] && $this->request[ $v ] != '0' )
+			{
+				$c_cnt++;
+			}
+		}
+		
+		if( $c_cnt >= 0 && $c_cnt < 3 )
+		{
+			$this->registry->getClass('output')->showError( 'pay_topic_bad_date', 10215 );
+		}
+		else if( $c_cnt = 3 )
+		{		
+			$toTime = mktime(0,0,0, $this->request['month'], $this->request['day'], $this->request['year']);
+			
+			if ( time()-86400 > $toTime)
+			{
+				$this->registry->getClass('output')->showError( 'pay_topic_bad_date', 10216 );
+			}
+			
+		}
+		
+		if ( !$this->topic['pinned'] ) 
+		{
+			$this->modLibrary->topicPin($this->request['tid']);
+		}
+		$this->DB->update( 'topics',
+														array(  'payed'  => '1', 'payed_from' => time(), 'payed_to' => $toTime),
+														"tid  = ". $this->request['tid']
+											);
+																			
+		$this->_addModeratorLog( $this->lang->words['acp_pinned_pay_topic'] );
+					
+		$this->sendPinnedNotification($toTime);
+		
+		$words = $this->lang->words['pin_pay_topic'];
+			
+		$url	= "showtopic=".$this->topic['tid']."&amp;st=".intval($this->request['st']);
+			
+		if( $this->request['from'] == 'forum' )
+		{
+			$url	= "showforum=".$this->topic['forum_id']."&amp;st=".intval($this->request['st']);
+		}
+
+		$this->registry->output->redirectScreen( $words, $this->settings['base_url'] . $url );	
+		
+	}
+ 
+
+	protected function sendPinnedNotification($toTime = null) {
+			if (isset($toTime)) {
+				$dateTo =  date('d.m.Y', $toTime);
+			} else {
+				$dateTo =  date('d.m.Y', $this->topic['payed_to']);
+			}
+			
+      // уведомление создателю темы
+      $ownerId = $this->topic['starter_id'];
+			
+      $this->DB->build(array(
+                  'select' => '*',
+                  'from' => 'members',
+                  'where' => "member_id = {$ownerId}"
+                      )
+              );
+      $outer = $this->DB->execute();
+      $owner = $this->DB->fetch($outer);
+			
+      IPSText::getTextClass('email')->getTemplate("pin_payed_topic_owner");
+		
+      IPSText::getTextClass('email')->buildMessage( array(
+												'TID'         => $this->topic['tid'],
+												'TOPIC'        => $this->topic['title'],
+												'PAYED_TO' => $dateTo
+											  )
+										);
+
+      IPSText::getTextClass('email')->to		= $owner['email'];
+      IPSText::getTextClass('email')->sendMail();
+			
+      if (isset($this->settings['payed_ntf_email']) && !empty($this->settings['payed_ntf_email'])) {
+      
+        $managerMail = $this->settings['payed_ntf_email'];
+			
+        IPSText::getTextClass('email')->getTemplate("pin_payed_topic_manager");
+			
+        IPSText::getTextClass('email')->buildMessage( array(
+												'TID'         => $this->topic['tid'],
+												'TOPIC'        => $this->topic['title'],
+												'STARTER'	   => $this->topic['starter_name'],
+												'SID'	   => $this->topic['starter_id'],
+												'PAYED_TO' => $dateTo
+											  )
+										);
+	
+        IPSText::getTextClass('email')->to		= $managerMail;
+      	IPSText::getTextClass('email')->sendMail();
+			
+		}
+	}		
+	
+} 
+			  ]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>getPayedIcon.php</hook_file_real>
+      <hook_type>libraryHooks</hook_type>
+      <hook_classname>getPayedIcon</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:6:"forums";s:15:"classToOverload";s:12:"class_forums";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}
+      ]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+			class getPayedIcon extends (~extends~) {
+		
+				public function fetchTopicFolderIcon( $topic, $dot="", $is_read=false )
+				{
+					if ($topic['payed'])
+					{
+					
+					if (($topic['posts'] + 1 >= $this->settings['hot_topic']) and $is_read )
+					{
+						return "t_payed_read_hot";
+					}
+		
+					if ( !$is_read )
+					{
+						if ($topic['posts'] + 1 >= $this->settings['hot_topic'])
+						{
+							return "t_payed_unread_hot";
+						}
+						else
+						{
+							return "t_payed_unread";
+						}
+					} else {
+						return "t_payed_read";
+					}
+						
+					} else {
+					
+						// Выполнение стандартного действия
+						return parent::fetchTopicFolderIcon($topic, $dot, $is_read);	
+					}
+					
+				}
+			
+			}
+      ]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>pinpayOption.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>pinpayOption</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:10:"skin_topic";s:12:"skinFunction";s:17:"topicViewTemplate";s:4:"type";s:7:"foreach";s:2:"id";s:9:"mod_links";s:8:"position";s:10:"outer.post";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+class pinpayOption
+{
+	public function getOutput()
+	{
+		$member = ipsRegistry::instance()->member()->fetchMemberData();;
+					
+		if ( $member['g_access_cp'] or $member['g_is_supmod'] or $member['member_group_id'] == 21)
+		{ 
+			return <<<HTML
+			<option value="pinpay">-Коммерческая тема</option>
+HTML;
+		}
+	}
+}]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_title>Платные темы</conf_title_title>
+      <conf_title_desc/>
+      <conf_title_noshow>0</conf_title_noshow>
+      <conf_title_keyword>payed_topics</conf_title_keyword>
+      <conf_title_app>core</conf_title_app>
+      <conf_title_tab>Hooks</conf_title_tab>
+    </setting>
+    <setting>
+      <conf_id>519</conf_id>
+      <conf_title>Email для уведомлений</conf_title>
+      <conf_description>Email для отправки уведомлений о закреплении и окончании сроков размещения коммерческой темы</conf_description>
+      <conf_group>67</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>payed_ntf_email</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>payed_topics</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>520</conf_id>
+      <conf_title>Срок уведомления</conf_title>
+      <conf_description>Количество дней до окончания срока размещения коммерческой темы</conf_description>
+      <conf_group>67</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>payed_ntf_days</conf_key>
+      <conf_value/>
+      <conf_default>7</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>0</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords/>
+      <conf_title_keyword>payed_topics</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </hookextras_settings>
+  <hookextras_language>
+    <language>
+      <word_app>forums</word_app>
+      <word_pack>public_mod</word_pack>
+      <word_key>pin_pay_topic</word_key>
+      <word_default>Коммерческая тема закреплена</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>forums</word_app>
+      <word_pack>public_mod</word_pack>
+      <word_key>acp_pinned_pay_topic</word_key>
+      <word_default>Коммерческая тема закреплена</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>forums</word_app>
+      <word_pack>public_mod</word_pack>
+      <word_key>pay_topic_params_form</word_key>
+      <word_default>Параметры коммерческой темы</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>forums</word_app>
+      <word_pack>public_mod</word_pack>
+      <word_key>payed_to</word_key>
+      <word_default>Окончание срока размещения коммерческой темы</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>forums</word_app>
+      <word_pack>public_mod</word_pack>
+      <word_key>payed_post_button</word_key>
+      <word_default>Сохранить коммерческой тему</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>forums</word_app>
+      <word_pack>public_mod</word_pack>
+      <word_key>pay_topic_params_title</word_key>
+      <word_default>Вы хотите изменить параметры коммерческой темы </word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+		<language>
+      <word_app>core</word_app>
+      <word_pack>public_global</word_pack>
+      <word_key>actualize_payed_topics_start_log</word_key>
+      <word_default>Актуализация коммерческих тем прошла успешно</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_global</word_pack>
+      <word_key>actualize_payed_topics_log</word_key>
+      <word_default>Коммерческие темы %s перенесены в отстойник</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>pin_payed_topic_owner</word_key>
+      <word_default><![CDATA[Созданная Вами тема "<#TOPIC#>" была отмечена как коммерческая на срок до <#PAYED_TO#>.
+
+Адрес темы: <#BOARD_ADDRESS#>?showtopic=<#TID#>&view=getnewpost]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>subject__pin_payed_topic_owner</word_key>
+      <word_default>Ваша тема была закреплена как коммерческая</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>pin_payed_topic_manager</word_key>
+      <word_default><![CDATA[Тема "<#TOPIC#>", созданная пользователем <#STARTER#>, была отмечена как коммерческая на срок до <#PAYED_TO#>.
+
+Адрес темы: <#BOARD_ADDRESS#>?showtopic=<#TID#>&view=getnewpost]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>subject__pin_payed_topic_manager</word_key>
+      <word_default>Новая тема была закреплена как коммерческая</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>payed_n_days_notification</word_key>
+      <word_default><![CDATA[Срок размещения Вашей коммерческой темы "<#TOPIC#>" заканчивается <#PAYED_TO#>..
+
+Свяжитесь с менеджером для уточнения условий продления срока размещения темы.			
+
+Адрес темы: <#BOARD_ADDRESS#>?showtopic=<#TID#>&view=getnewpost]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>subject__payed_n_days_notification</word_key>
+      <word_default>Заканчивается cрок размещения Вашей коммерческой темы</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>payed_n_days_notification_manager</word_key>
+      <word_default><![CDATA[Срок размещения коммерческой темы "<#TOPIC#>" заканчивается <#PAYED_TO#>.
+
+Тема создана пользователем <#STARTER#>.
+Адрес темы: <#BOARD_ADDRESS#>?showtopic=<#TID#>&view=getnewpost]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>subject__payed_n_days_notification_manager</word_key>
+      <word_default><![CDATA[Заканчивается cрок размещения коммерческой темы "%s"]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>payed_tomorrow_notification</word_key>
+      <word_default><![CDATA[Завтра <#PAYED_TO#> заканчивается срок размещения Вашей коммерческой темы "<#TOPIC#>". Тема будет удалена.
+
+Свяжитесь с менеджером для уточнения условий продления срока размещения темы.			
+
+Адрес темы: <#BOARD_ADDRESS#>?showtopic=<#TID#>&view=getnewpost]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>subject__payed_tomorrow_notification</word_key>
+      <word_default>Завтра заканчивается cрок размещения Вашей коммерческой темы</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>payed_tomorrow_notification_manager</word_key>
+      <word_default><![CDATA[Завтра <#PAYED_TO#> заканчивается срок размещения коммерческой темы "<#TOPIC#>".
+
+Тема создана пользователем <#STARTER#>.
+Адрес темы: <#BOARD_ADDRESS#>?showtopic=<#TID#>&view=getnewpost]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>subject__payed_tomorrow_notification_manager</word_key>
+      <word_default><![CDATA[Завтра заканчивается cрок размещения коммерческой темы "%s"]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>payed_closed_notification</word_key>
+      <word_default><![CDATA[Срок размещения Вашей коммерческой темы "<#TOPIC#>" закончился. Тема удалена.
+
+Благодарим Вас за сотрудничество. Если Вы хотите продлить размещение рекламы на нашем форум, свяжитесь с менеджером.]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>subject__payed_closed_notification</word_key>
+      <word_default>Окончание срока размещения Вашей коммерческой темы</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>payed_closed_notification_manager</word_key>
+      <word_default><![CDATA[Срок размещения коммерческой темы "<#TOPIC#>" закончился. Тема была удалена.
+
+Тема была создана пользователем <#STARTER#>.]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_email_content</word_pack>
+      <word_key>subject__payed_closed_notification_manager</word_key>
+      <word_default><![CDATA[Окончание срока размещения коммерческой темы "%s"]]></word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+    <language>
+      <word_app>core</word_app>
+      <word_pack>public_error</word_pack>
+      <word_key>pay_topic_bad_date</word_key>
+      <word_default>Неверно указан срок размещения платной темы</word_default>
+      <word_custom/>
+      <word_js>0</word_js>
+    </language>
+  </hookextras_language>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates>
+    <templates>
+      <template_set_id>0</template_set_id>
+      <template_group>skin_topic</template_group>
+      <template_content><![CDATA[ 
+			<div class='message'>
+  {$this->lang->words['pay_topic_params_title']} 
+	<a href="{$this->settings['base_url']}showtopic={$topic['tid']}" title="{$this->lang->words['report_view_reported']}">{$topic['title']}</a><br />
+</div>
+
+<br />
+<div id='fast_reply' style='display:block'>
+	<h3 class='maintitle'>{$this->lang->words['pay_topic_params_form']}</h3>
+	<div class='generic_bar'></div>
+	<div class='general_box alt'>
+		<form method="post" action="{$this->settings['base_url']}" >
+			<input type="hidden"  name="tid" value="{$topic['tid']}" />
+			<input type="hidden" name="app" value="forums" />
+			<input type="hidden" name="module" value="moderate" />
+			<input type="hidden" name="section" value="moderate" />
+			<input type="hidden" name="do" value="save_pay_topic" />
+			<input type="hidden" name="f" value="{$topic['forum_id']}" />
+                        <input type="hidden" name="t" value="{$topic['tid']}" />
+                        <input type="hidden" name="auth_key" value="{$this->member->form_hash}" />
+<div style="margin: 15px;">
+<label for='payed_to'>{$this->lang->words['payed_to']}</label>
+			
+				<select name="day">&nbsp;
+					<foreach loop="days:$day as $d">
+						<option value='{$d[0]}'<if test="daySelected:|:$d[0] == $topicDate['day']"> selected="selected"</if>>{$d[1]}</option>
+					</foreach>
+				</select>
+				<select name="month">&nbsp;
+					<foreach loop="months:$mon as $m">
+						<option value='{$m[0]}'<if test="monthSelected:|:$m[0] == $topicDate['mon']"> selected="selected"</if>>{$m[1]}</option>
+					</foreach>
+				</select>
+				<select name="year">&nbsp;
+					<foreach loop="years:$year as $y">
+						<option value='{$y[0]}'<if test="yearSelected:|:$y[0] == $topicDate['year']"> selected="selected"</if>>{$y[1]}</option>
+					</foreach>
+				</select> <br />
+</div>
+			<fieldset class='submit'>
+				<input type='submit' class='input_submit' value='{$this->lang->words['payed_post_button']}' accesskey='s' />
+			</fieldset>
+		</form>
+	</div>
+</div>
+	
+			]]></template_content>
+      <template_name>payTopicParams</template_name>
+      <template_data>$topic,$topicDate,$day,$mon,$year</template_data>
+      <template_updated>1329731820</template_updated>
+      <template_removable>1</template_removable>
+      <template_added_to>1</template_added_to>
+      <template_user_added>1</template_user_added>
+      <template_user_edited>1</template_user_edited>
+      <template_master_key/>
+      <template_set_type/>
+    </templates>
+  </hookextras_templates>
+  <hookextras_css/>
+  <hookextras_tasks>
+    <tasks>
+      <task_title>Актуализация коммерческих тем</task_title>
+      <task_file>actualizepayedtopics.php</task_file>
+      <task_week_day>-1</task_week_day>
+      <task_month_day>-1</task_month_day>
+      <task_hour>1</task_hour>
+      <task_minute>0</task_minute>
+      <task_cronkey>e337b1f28629b1a23a4dfea42a493213</task_cronkey>
+      <task_log>1</task_log>
+      <task_description>Перенос неактуальных тем в отстойник, предупреждение об окончании срока размещения</task_description>
+      <task_enabled>1</task_enabled>
+      <task_key/>
+      <task_safemode>0</task_safemode>
+      <task_locked>0</task_locked>
+      <task_application>forums</task_application>
+    </tasks>
+  </hookextras_tasks>
+  <hookextras_database_create/>
+  <hookextras_database_alter/>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>

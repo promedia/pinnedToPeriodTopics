@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<replacements>
+  <replacement>
+    <replacement_key>t_payed_read</replacement_key>
+    <replacement_content><![CDATA[<img src='{style_image_url}/t_payed_read.png' alt='{lang:pm_open_no}' />]]></replacement_content>
+    <replacement_set_id>1</replacement_set_id>
+  </replacement>
+  <replacement>
+    <replacement_key>t_payed_read_hot</replacement_key>
+    <replacement_content><![CDATA[<img src='{style_image_url}/t_payed_read_hot.png' alt='{lang:pm_hot_no}' />]]></replacement_content>
+    <replacement_set_id>1</replacement_set_id>
+  </replacement>
+  <replacement>
+    <replacement_key>t_payed_unread</replacement_key>
+    <replacement_content><![CDATA[<img src='{style_image_url}/t_payed_unread.png' alt='{lang:pm_open_new}' />]]></replacement_content>
+    <replacement_set_id>1</replacement_set_id>
+  </replacement>
+  <replacement>
+    <replacement_key>t_payed_unread_hot</replacement_key>
+    <replacement_content><![CDATA[<img src='{style_image_url}/t_payed_unread_hot.png' alt='{lang:pm_hot_new}' />]]></replacement_content>
+    <replacement_set_id>1</replacement_set_id>
+  </replacement>
+</replacements>

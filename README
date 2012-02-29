@@ -14,6 +14,7 @@
 ALTER TABLE ibf_topics ADD payed TINYINT(1) UNSIGNED NOT NULL DEFAULT 0;
 ALTER TABLE ibf_topics ADD payed_from INT(11) UNSIGNED NOT NULL DEFAULT 0;
 ALTER TABLE ibf_topics ADD payed_to INT(11) UNSIGNED NOT NULL DEFAULT 0;
+
 После чего уставить хук payTopics_nosql.xml.
 
 2. Настройка

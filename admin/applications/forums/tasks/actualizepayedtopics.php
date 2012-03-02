@@ -75,7 +75,7 @@ class task_item {
     $this->class = $class;
     $this->task = $task;
     
-    // отстойник
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     $this->trash_forum = $this->settings['forum_trash_can_id'];
   }
 
@@ -86,10 +86,10 @@ class task_item {
    * @return	void
    */
   public function runTask() {
-    // загружаем лангфайлы
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     $this->registry->getClass('class_localization')->loadLanguageFile(array('public_global'), 'core');
 
-    // устанавливаем текущее время и время, за которое нужно уведомлять об окончании срока размещения
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     $current_time = strtotime(date('Y-m-d'));
     $notify_time = $this->settings['payed_ntf_days'] ? $this->settings['payed_ntf_days'] * 86400 : 604800;
 
@@ -98,39 +98,39 @@ class task_item {
     $ids_to_close = array();
     $send_closed = array();
 
-    // получаем все платные темы ( не находящиеся в отстойнике) 
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ ( пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) 
     $this->DB->build(array('select' => 'tid, title, starter_id, starter_name, forum_id, payed, payed_to', 'from' => 'topics', 'where' => 'payed = 1 AND forum_id <> '. $this->trash_forum));
     $this->DB->execute();
 
-    // заполняем массивы, для отправки уведомлений
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     while ($topic = $this->DB->fetch()) {
 
-      // время до окончания срока размещения
+      // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
       $time_to_the_end = $topic['payed_to'] - $current_time;
 
-      if ($time_to_the_end <= 0) {
+      if ($time_to_the_end < 0) {
 
-        // срок размещения закончился
+        // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         $ids_to_close[] = $topic['tid'];
         $send_closed[] = $topic;
-      } elseif ($time_to_the_end <= 86400) {
+      } elseif ($time_to_the_end == 86400) {
 
-        // заканчивается завтра
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
         $send_tomorrow[] = $topic;
-      } elseif ($time_to_the_end = $notify_time) {
+      } elseif ($time_to_the_end == $notify_time) {
 
-        // заканчивается через N дней
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ N пїЅпїЅпїЅпїЅ
         $send_ndays[] = $topic;
       }
     }
 
-    // отправляем письма манагеру и пользователям о состоянии коммерческой темы
-    // 7 дней.....
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+    // 7 пїЅпїЅпїЅпїЅ.....
     if (count($send_ndays) > 0) {
 
       foreach ($send_ndays as $to_send) {
  
-        // получаем инфу о создателе темы
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
         $ownerId = $to_send['starter_id'];
         $owner = $this->DB->buildAndFetch(array(
                     'select' => '*',
@@ -139,7 +139,7 @@ class task_item {
                         )
         );
 
-        // формируем письмо
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
         IPSText::getTextClass('email')->getTemplate("payed_n_days_notification");
 
         IPSText::getTextClass('email')->buildMessage(array(
@@ -152,7 +152,7 @@ class task_item {
         IPSText::getTextClass('email')->to = $owner['email'];
         IPSText::getTextClass('email')->sendMail();
 
-        // письмо манагеру
+        // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         if (isset($this->settings['payed_ntf_email']) && !empty($this->settings['payed_ntf_email'])) {
 
           $managerMail = $this->settings['payed_ntf_email'];
@@ -177,12 +177,12 @@ class task_item {
       }
     }
 
-    // уже завтра...
+    // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ...
     if (count($send_tomorrow) > 0) {
 
       foreach ($send_tomorrow as $to_send) {
 
-        // получаем инфу о создателе темы
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
         $ownerId = $to_send['starter_id'];
         $owner = $this->DB->buildAndFetch(array(
                     'select' => '*',
@@ -191,7 +191,7 @@ class task_item {
                         )
         );
 
-        // формируем письмо
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
         IPSText::getTextClass('email')->getTemplate("payed_tomorrow_notification");
 
         IPSText::getTextClass('email')->buildMessage(array(
@@ -204,7 +204,7 @@ class task_item {
         IPSText::getTextClass('email')->to = $owner['email'];
         IPSText::getTextClass('email')->sendMail();
 
-        // письмо манагеру
+        // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         if (isset($this->settings['payed_ntf_email']) && !empty($this->settings['payed_ntf_email'])) {
 
           $managerMail = $this->settings['payed_ntf_email'];
@@ -230,7 +230,7 @@ class task_item {
       }
     }
 
-    // в отстойник
+    // пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     if (count($send_closed) > 0) {
 
       $classToLoad = IPSLib::loadLibrary(IPSLib::getAppDir('forums') . '/sources/classes/moderate.php', 'moderatorLibrary', 'forums');
@@ -239,7 +239,7 @@ class task_item {
 
       foreach ($send_closed as $to_send) {
 
-        // переносим в отстойник
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         $this->modLibrary->topicMove($to_send['tid'], $to_send['forum_id'], $this->trash_forum);
 
         $this->registry->class_forums->allForums[$this->forum['id']]['_update_deletion'] = 1;
@@ -248,7 +248,7 @@ class task_item {
         $this->modLibrary->forumRecount($to_send['forum_id']);
         $this->modLibrary->forumRecount($this->trash_forum);
 
-        // получаем инфу о создателе темы
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
         $ownerId = $to_send['starter_id'];
         $owner = $this->DB->buildAndFetch(array(
                     'select' => '*',
@@ -257,7 +257,7 @@ class task_item {
                         )
         );
 
-        // формируем письмо
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
         IPSText::getTextClass('email')->getTemplate("payed_closed_notification");
 
         IPSText::getTextClass('email')->buildMessage(array(
@@ -269,7 +269,7 @@ class task_item {
         IPSText::getTextClass('email')->to = $owner['email'];
         IPSText::getTextClass('email')->sendMail();
 
-        // письмо манагеру
+        // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         if (isset($this->settings['payed_ntf_email']) && !empty($this->settings['payed_ntf_email'])) {
 
           $managerMail = $this->settings['payed_ntf_email'];
